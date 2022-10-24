@@ -7,6 +7,9 @@ import com.icegreen.greenmail.user.UserException;
 import com.icegreen.greenmail.user.UserManager;
 import com.icegreen.greenmail.util.GreenMail;
 import com.icegreen.greenmail.util.ServerSetup;
+import jakarta.mail.Address;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,8 +19,12 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Scanner;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Exposes GreenMail API and openapi.
@@ -157,6 +164,41 @@ public class GreenMailApiResource {
         return Response.status(Response.Status.OK)
             .entity(new SuccessMessage("User '" + id + "' deleted")).build();
 
+    }
+
+    public static class EmailMessage {
+
+        private final List<String> recipients;
+        private final String subject;
+
+        public EmailMessage(List<String> recipients, String subject) {
+            this.recipients = recipients;
+            this.subject = subject;
+        }
+
+        public List<String> getRecipients() {
+            return recipients;
+        }
+
+        public String getSubject() {
+            return subject;
+        }
+    }
+
+    @GET
+    @Path("/api/mail")
+    @Produces("application/json")
+    public Collection<EmailMessage> listReceivedMessages() throws MessagingException {
+        MimeMessage[] receivedMessages = greenMail.getReceivedMessages();
+        List<EmailMessage> emailMessages = new ArrayList<>(receivedMessages.length);
+        for (MimeMessage mimeMessage : receivedMessages) {
+            List<String> recipients = Stream.of(mimeMessage.getAllRecipients())
+                .map(Address::toString)
+                .collect(Collectors.toList());
+            String subject = mimeMessage.getSubject();
+            emailMessages.add(new EmailMessage(recipients, subject));
+        }
+        return emailMessages;
     }
 
     // Operations
